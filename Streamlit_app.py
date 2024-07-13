@@ -32,7 +32,7 @@ def prepare_text(text):
     return ""  # Return an empty string if the input is not valid to prevent errors
 
 # Load and prepare documents using pdfplumber
-@st.cache(allow_output_mutation=True)
+@st.cache_data
 def load_documents(pdf_files):
     documents = []
     for pdf_file in pdf_files:
@@ -44,7 +44,7 @@ def load_documents(pdf_files):
     return documents
 
 # Function to split texts into manageable chunks using the custom Document class
-@st.cache(allow_output_mutation=True)
+@st.cache_data
 def create_splits(documents):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     document_objs = [Document.from_dict(doc) for doc in documents]  # Convert back to Document objects
@@ -52,7 +52,7 @@ def create_splits(documents):
     return [{'page_content': split.page_content, 'metadata': split.metadata} for split in splits]
 
 # Function to create embeddings and index
-@st.cache(allow_output_mutation=True)
+@st.cache_resource
 def create_embeddings_and_index(splits):
     embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     splits_content = [split['page_content'] for split in splits]
