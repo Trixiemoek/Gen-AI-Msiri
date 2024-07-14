@@ -107,7 +107,6 @@ def main():
 
 # Load and prepare documents
 pdf_files = [
-    "Msiri_one.pdf",
     "Msiri_two_many.pdf"
 ]
 
