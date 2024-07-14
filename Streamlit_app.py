@@ -8,6 +8,7 @@ from transformers import pipeline
 import logging
 import warnings
 import gc
+import tracemalloc
 
 # Suppress warnings
 warnings.filterwarnings('ignore', category=UserWarning)
@@ -119,6 +120,9 @@ pdf_files = [
 documents = []
 splits = []
 
+# Start memory tracing
+tracemalloc.start()
+
 try:
     logger.info("Loading and processing documents incrementally...")
     for pdf_file in pdf_files:
@@ -134,6 +138,13 @@ try:
 except Exception as e:
     logger.error("An error occurred while loading and processing documents: %s", e)
     st.error("An error occurred while loading and processing documents. Please check the logs for more details.")
+
+# Print memory usage statistics
+snapshot = tracemalloc.take_snapshot()
+top_stats = snapshot.statistics('lineno')
+logger.info("[Top 10 memory usage lines]")
+for stat in top_stats[:10]:
+    logger.info(stat)
 
 if __name__ == "__main__":
     main()
