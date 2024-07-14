@@ -36,7 +36,7 @@ def prepare_text(text):
     return ""
 
 # Load and prepare documents using pdfplumber
-def load_documents(pdf_files, max_pages_per_pdf=10):
+def load_documents(pdf_files, max_pages_per_pdf=5):
     documents = []
     for pdf_file in pdf_files:
         with pdfplumber.open(pdf_file) as pdf:
@@ -60,7 +60,7 @@ def create_splits(documents):
     return [{'page_content': split.page_content, 'metadata': split.metadata} for split in splits]
 
 # Function to create embeddings and index
-def create_embeddings_and_index(splits, batch_size=4):
+def create_embeddings_and_index(splits, batch_size=2):
     embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     splits_content = [split['page_content'] for split in splits]
     embeddings = []
@@ -75,7 +75,7 @@ def create_embeddings_and_index(splits, batch_size=4):
     return embedding_model, index, splits
 
 # Function to query documents based on textual query
-def query_documents(embedding_model, index, splits, query, top_k=5):
+def query_documents(embedding_model, index, splits, query, top_k=3):
     query_embedding = embedding_model.encode([prepare_text(query)])
     distances, indices = index.search(query_embedding, top_k)
     return [splits[i] for i in indices[0]]
