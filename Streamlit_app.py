@@ -36,7 +36,6 @@ def prepare_text(text):
     return ""
 
 # Load and prepare documents using pdfplumber
-@st.cache_data
 def load_documents(pdf_files):
     documents = []
     for pdf_file in pdf_files:
@@ -48,7 +47,6 @@ def load_documents(pdf_files):
     return documents
 
 # Function to split texts into manageable chunks using the custom Document class
-@st.cache_data
 def create_splits(documents):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     document_objs = [Document.from_dict(doc) for doc in documents]
