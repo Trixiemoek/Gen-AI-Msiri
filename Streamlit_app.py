@@ -36,17 +36,18 @@ def prepare_text(text):
     return ""
 
 # Load and prepare documents using pdfplumber
-def load_documents(pdf_files):
+def load_documents(pdf_files, max_pages_per_pdf=10):
     documents = []
     for pdf_file in pdf_files:
         with pdfplumber.open(pdf_file) as pdf:
-            for page in pdf.pages:
+            for page_number, page in enumerate(pdf.pages):
+                if page_number >= max_pages_per_pdf:
+                    break
                 text = prepare_text(page.extract_text())
                 if text:
                     documents.append(Document(text).to_dict())
-                # Break after a certain number of pages to avoid loading too much data
-                if len(documents) > 100:  
-                    break
+                # Free up memory after processing each page
+                gc.collect()
         # Free up memory after processing each file
         gc.collect()
     return documents
@@ -59,7 +60,7 @@ def create_splits(documents):
     return [{'page_content': split.page_content, 'metadata': split.metadata} for split in splits]
 
 # Function to create embeddings and index
-def create_embeddings_and_index(splits, batch_size=8):
+def create_embeddings_and_index(splits, batch_size=4):
     embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     splits_content = [split['page_content'] for split in splits]
     embeddings = []
