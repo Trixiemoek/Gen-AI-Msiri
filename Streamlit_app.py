@@ -7,6 +7,7 @@ import numpy as np
 from transformers import pipeline
 import logging
 import warnings
+import gc
 
 # Suppress warnings
 warnings.filterwarnings('ignore', category=UserWarning)
@@ -55,12 +56,16 @@ def create_splits(documents):
     return [{'page_content': split.page_content, 'metadata': split.metadata} for split in splits]
 
 # Function to create embeddings and index
-@st.cache_resource
-def create_embeddings_and_index(splits):
+def create_embeddings_and_index(splits, batch_size=16):
     embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     splits_content = [split['page_content'] for split in splits]
-    embeddings = embedding_model.encode(splits_content)
-    dimension = embeddings.shape[1]
+    embeddings = []
+    for i in range(0, len(splits_content), batch_size):
+        batch = splits_content[i:i + batch_size]
+        batch_embeddings = embedding_model.encode(batch)
+        embeddings.extend(batch_embeddings)
+        gc.collect()  # Clear unused memory
+    dimension = len(embeddings[0])
     index = faiss.IndexFlatL2(dimension)
     index.add(np.array(embeddings))
     return embedding_model, index, splits
