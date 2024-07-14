@@ -5,17 +5,15 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import faiss
 import numpy as np
 from transformers import pipeline
-from transformers import logging
+import logging
 import warnings
-import logging as py_logging
 
 # Suppress warnings
-logging.set_verbosity_error()
 warnings.filterwarnings('ignore', category=UserWarning)
 
 # Set up logging
-py_logging.basicConfig(level=py_logging.INFO)
-logger = py_logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Helper class to simulate the expected structure by text splitter
 class Document:
@@ -73,11 +71,22 @@ def query_documents(embedding_model, index, splits, query, top_k=5):
     distances, indices = index.search(query_embedding, top_k)
     return [splits[i] for i in indices[0]]
 
+# Define the summarization chain using Hugging Face Pipelines
+summarization_pipeline = pipeline("summarization", model="facebook/bart-large-cnn", tokenizer="facebook/bart-large-cnn")
+
+class CombineDocsChain:
+    def __init__(self, llm):
+        self.llm = llm
+
+    def __call__(self, documents):
+        combined_text = " ".join([doc['page_content'] for doc in documents])
+        return self.llm(combined_text, max_length=512, min_length=30, do_sample=False)[0]['summary_text']
+
 # Streamlit app
 def main():
     try:
         st.title("MSIRI")
-        
+
         query = st.text_input("Hello. How may I help?:")
         if query:
             with st.spinner('Processing query...'):
@@ -113,16 +122,6 @@ try:
 except Exception as e:
     logger.error("An error occurred while loading and processing documents: %s", e)
     st.error("An error occurred while loading and processing documents. Please check the logs for more details.")
-
-# Define the summarization chain using Hugging Face Pipelines
-summarization_pipeline = pipeline("summarization", model="facebook/bart-large-cnn", tokenizer="facebook/bart-large-cnn")
-
-class CombineDocsChain:
-    def __init__(self, llm):
-        self.llm = llm
-    def __call__(self, documents):
-        combined_text = " ".join([doc['page_content'] for doc in documents])
-        return self.llm(combined_text, max_length=512, min_length=30, do_sample=False)[0]['summary_text']
 
 if __name__ == "__main__":
     main()
