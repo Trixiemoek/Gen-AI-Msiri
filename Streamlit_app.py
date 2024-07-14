@@ -35,21 +35,17 @@ def prepare_text(text):
         return text.replace("\n", " ")
     return ""
 
-# Load and prepare documents using pdfplumber
-def load_documents(pdf_files, max_pages_per_pdf=5):
+# Function to process a single PDF file incrementally
+def process_pdf(pdf_file, max_pages=5):
     documents = []
-    for pdf_file in pdf_files:
-        with pdfplumber.open(pdf_file) as pdf:
-            for page_number, page in enumerate(pdf.pages):
-                if page_number >= max_pages_per_pdf:
-                    break
-                text = prepare_text(page.extract_text())
-                if text:
-                    documents.append(Document(text).to_dict())
-                # Free up memory after processing each page
-                gc.collect()
-        # Free up memory after processing each file
-        gc.collect()
+    with pdfplumber.open(pdf_file) as pdf:
+        for page_number, page in enumerate(pdf.pages):
+            if page_number >= max_pages:
+                break
+            text = prepare_text(page.extract_text())
+            if text:
+                documents.append(Document(text).to_dict())
+            gc.collect()
     return documents
 
 # Function to split texts into manageable chunks using the custom Document class
@@ -59,20 +55,20 @@ def create_splits(documents):
     splits = text_splitter.split_documents(document_objs)
     return [{'page_content': split.page_content, 'metadata': split.metadata} for split in splits]
 
-# Function to create embeddings and index
+# Function to create embeddings and index incrementally
 def create_embeddings_and_index(splits, batch_size=2):
     embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    splits_content = [split['page_content'] for split in splits]
-    embeddings = []
-    for i in range(0, len(splits_content), batch_size):
-        batch = splits_content[i:i + batch_size]
-        batch_embeddings = embedding_model.encode(batch)
-        embeddings.extend(batch_embeddings)
-        gc.collect()  # Clear unused memory
-    dimension = len(embeddings[0])
-    index = faiss.IndexFlatL2(dimension)
-    index.add(np.array(embeddings))
-    return embedding_model, index, splits
+    index = None
+    for i in range(0, len(splits), batch_size):
+        batch_splits = splits[i:i + batch_size]
+        batch_content = [split['page_content'] for split in batch_splits]
+        batch_embeddings = embedding_model.encode(batch_content)
+        if index is None:
+            dimension = len(batch_embeddings[0])
+            index = faiss.IndexFlatL2(dimension)
+        index.add(np.array(batch_embeddings))
+        gc.collect()
+    return embedding_model, index
 
 # Function to query documents based on textual query
 def query_documents(embedding_model, index, splits, query, top_k=3):
@@ -114,19 +110,26 @@ def main():
         logger.error("An error occurred in the main function: %s", e)
         st.error("An unexpected error occurred. Please try again later.")
 
-# Load and prepare documents
+# Load and process documents incrementally
 pdf_files = [
     "Msiri_one.pdf",
     "Msiri_two_many.pdf"
 ]
 
+documents = []
+splits = []
+
 try:
-    logger.info("Loading documents...")
-    documents = load_documents(pdf_files)
-    logger.info("Splitting documents...")
-    splits = create_splits(documents)
-    logger.info("Creating embeddings and index...")
-    embedding_model, index, splits = create_embeddings_and_index(splits)
+    logger.info("Loading and processing documents incrementally...")
+    for pdf_file in pdf_files:
+        pdf_documents = process_pdf(pdf_file)
+        documents.extend(pdf_documents)
+        pdf_splits = create_splits(pdf_documents)
+        splits.extend(pdf_splits)
+        gc.collect()  # Free up memory after processing each file
+
+    logger.info("Creating embeddings and index incrementally...")
+    embedding_model, index = create_embeddings_and_index(splits)
     logger.info("Documents loaded and processed successfully!")
 except Exception as e:
     logger.error("An error occurred while loading and processing documents: %s", e)
