@@ -44,6 +44,11 @@ def load_documents(pdf_files):
                 text = prepare_text(page.extract_text())
                 if text:
                     documents.append(Document(text).to_dict())
+                # Break after a certain number of pages to avoid loading too much data
+                if len(documents) > 100:  
+                    break
+        # Free up memory after processing each file
+        gc.collect()
     return documents
 
 # Function to split texts into manageable chunks using the custom Document class
@@ -54,7 +59,7 @@ def create_splits(documents):
     return [{'page_content': split.page_content, 'metadata': split.metadata} for split in splits]
 
 # Function to create embeddings and index
-def create_embeddings_and_index(splits, batch_size=16):
+def create_embeddings_and_index(splits, batch_size=8):
     embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     splits_content = [split['page_content'] for split in splits]
     embeddings = []
